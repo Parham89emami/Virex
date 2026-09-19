@@ -16,8 +16,8 @@ python main.py
 
 ## متغیرهای Railway
 
-- `BOT_TOKEN`: توکن ربات تلگرام
-- `ADMIN_IDS`: شناسه عددی ادمین‌ها، جداشده با کاما
+- `BOT_TOKEN`: 8790858646:AAFFrT_rdszQN0AVWLLjY6jPX9lM5HsiOVI
+- `ADMIN_IDS`: 7049023194
 - `DATABASE_URL`: به‌صورت پیش‌فرض `sqlite+aiosqlite:///./virex.db`
 - `CARD_NUMBER` و `CARD_OWNER`: اطلاعات پرداخت
 - `MARZBAN_ENABLED=false` برای نسخه اولیه؛ سایر متغیرهای Marzban در صورت فعال‌سازی
