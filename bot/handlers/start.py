@@ -6,12 +6,19 @@ from telegram.ext import ContextTypes
 from bot.handlers.orders import show_plans
 from bot.handlers.users import ensure_user_registered
 from bot.keyboards.main import (
-    ABOUT_BUTTON, BACK_BUTTON, BUY_BUTTON, ORDERS_BUTTON, PLANS_BUTTON,
-    SUPPORT_BUTTON, get_main_menu_keyboard,
+    ABOUT_BUTTON,
+    BACK_BUTTON,
+    BUY_BUTTON,
+    ORDERS_BUTTON,
+    PLANS_BUTTON,
+    SUPPORT_BUTTON,
+    get_main_menu_keyboard,
+    get_plan_keyboard,
 )
 from config.settings import settings
 from database.database import async_session_factory
 from services.order import get_all_orders_for_user
+from services.vpn import VPNService
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -64,6 +71,31 @@ async def orders_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             f"📌 {labels.get(order.status, order.status)}"
         )
     await update.message.reply_text("\n".join(lines), reply_markup=get_main_menu_keyboard())
+
+
+async def main_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle inline navigation back to the reply-keyboard main menu."""
+    query = update.callback_query
+    if query is None or query.message is None:
+        return
+    await query.answer()
+    await query.edit_message_reply_markup(reply_markup=None)
+    await query.message.reply_text(
+        "🏠 منوی اصلی Virex",
+        reply_markup=get_main_menu_keyboard(),
+    )
+
+
+async def plans_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Render the plan list when the user presses an inline back button."""
+    query = update.callback_query
+    if query is None or query.message is None:
+        return
+    await query.answer()
+    await query.edit_message_text(
+        "📦 پلن موردنظر را انتخاب کنید:\n\n✅ اعتبار همه پلن‌ها: ۳۰ روز",
+        reply_markup=get_plan_keyboard(VPNService.get_plans()),
+    )
 
 
 async def main_menu_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
