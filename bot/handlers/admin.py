@@ -13,9 +13,10 @@ def is_admin(user_id: int | None) -> bool:
 
 
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None or not is_admin(update.effective_user.id if update.effective_user else None):
+    user_id = update.effective_user.id if update.effective_user else None
+    if update.message is None or not is_admin(user_id):
         if update.message:
-            await update.message.reply_text("⛔ دسترسی غیرمجاز.")
+            await update.message.reply_text(f"⛔ دسترسی غیرمجاز. شناسه تلگرام شما: {user_id}")
         return
     async with async_session_factory() as session:
         orders = await get_pending_orders(session)

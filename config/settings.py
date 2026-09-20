@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 def parse_admin_ids(value: str) -> list[int]:
@@ -43,3 +46,7 @@ settings = Settings(
     marzban_username=os.getenv("MARZBAN_USERNAME", ""),
     marzban_password=os.getenv("MARZBAN_PASSWORD", ""),
 )
+
+logging.info(f"Bot initialized. Admin IDs: {settings.admin_ids}")
+if not settings.admin_ids:
+    logging.warning("No admin IDs configured. /admin command will be unavailable.")
