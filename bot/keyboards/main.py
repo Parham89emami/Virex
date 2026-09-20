@@ -1,41 +1,42 @@
 from __future__ import annotations
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+
+BUY_BUTTON = "🛒 خرید کانفیگ"
+PLANS_BUTTON = "📦 پلن‌ها"
+ORDERS_BUTTON = "🧾 سفارش‌های من"
+SUPPORT_BUTTON = "🎧 پشتیبانی"
+ABOUT_BUTTON = "ℹ️ درباره Virex"
+BACK_BUTTON = "🔙 بازگشت"
 
 
-def get_main_menu_keyboard():
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton("🛒 خرید کانفیگ", callback_data="menu_buy"),
-                InlineKeyboardButton("📦 پلن‌ها", callback_data="menu_plans"),
-            ],
-            [
-                InlineKeyboardButton("📋 سفارش‌های من", callback_data="menu_orders"),
-                InlineKeyboardButton("💬 پشتیبانی", callback_data="menu_support"),
-            ],
-        ]
+def get_main_menu_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [[BUY_BUTTON, PLANS_BUTTON], [ORDERS_BUTTON, SUPPORT_BUTTON], [ABOUT_BUTTON], [BACK_BUTTON]],
+        resize_keyboard=True,
+        one_time_keyboard=False,
+        input_field_placeholder="یک گزینه را انتخاب کنید",
     )
 
 
-def get_plans_keyboard():
-    buttons = []
-    for plan in [
-        ("10GB", "10gb"),
-        ("20GB", "20gb"),
-        ("30GB", "30gb"),
-        ("40GB", "40gb"),
-        ("50GB", "50gb"),
-        ("60GB", "60gb"),
-        ("70GB", "70gb"),
-        ("80GB", "80gb"),
-        ("90GB", "90gb"),
-        ("100GB", "100gb"),
-    ]:
-        buttons.append([InlineKeyboardButton(f"{plan[0]} • {plan[1].replace('gb','GB')}", callback_data=f"plan:{plan[1]}")])
-    buttons.append([InlineKeyboardButton("🔙 بازگشت", callback_data="menu_main")])
-    return InlineKeyboardMarkup(buttons)
+def get_back_inline_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[InlineKeyboardButton(BACK_BUTTON, callback_data="menu:main")]])
 
 
-def get_back_keyboard(label: str = "🔙 بازگشت"):
-    return InlineKeyboardMarkup([[InlineKeyboardButton(label, callback_data="menu_main")]])
+def get_plan_keyboard(plans: list[object]) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(
+            f"🔹 {plan.traffic_gb} گیگ | {plan.duration_days} روز | {plan.price_toman:,} تومان",
+            callback_data=f"plan:{plan.code}",
+        )]
+        for plan in plans
+    ]
+    rows.append([InlineKeyboardButton(BACK_BUTTON, callback_data="menu:main")])
+    return InlineKeyboardMarkup(rows)
+
+
+def get_confirmation_keyboard(code: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ تأیید و ثبت سفارش", callback_data=f"confirm:{code}")],
+        [InlineKeyboardButton(BACK_BUTTON, callback_data="menu:plans")],
+    ])
