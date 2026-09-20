@@ -4,7 +4,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from bot.handlers.users import ensure_user_registered
-from bot.keyboards.main import get_main_menu_keyboard
+from bot.keyboards.main import BACK_BUTTON, get_back_keyboard, get_main_menu_keyboard
 from database.database import async_session_factory
 from services.order import create_order_for_user, get_all_orders_for_user
 from services.vpn import VPNService
@@ -23,6 +23,7 @@ async def show_plans(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         ]
         for plan in VPNService.get_plans()
     ]
+    buttons.append([InlineKeyboardButton(BACK_BUTTON, callback_data="menu_main")])
     await update.message.reply_text(
         "📋 پلن موردنظر را انتخاب کنید:\n\n"
         "✅ همه پلن‌ها ۳۰ روزه هستند\n"
@@ -40,7 +41,10 @@ async def select_plan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     code = (query.data or "").split(":", 1)[-1]
     plan = VPNService.get_plan_by_code(code)
     if plan is None:
-        await query.edit_message_text("❌ پلن انتخاب‌شده معتبر نیست. دوباره از منو انتخاب کنید.")
+        await query.edit_message_text(
+            "❌ پلن انتخاب‌شده معتبر نیست. دوباره از منو انتخاب کنید.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(BACK_BUTTON, callback_data="menu_main")]]),
+        )
         return
 
     async with async_session_factory() as session:
@@ -50,7 +54,9 @@ async def select_plan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     from services.payment import PaymentService
 
     await query.edit_message_text(
-        "✅ سفارش شما ثبت شد.\n\n" + PaymentService().payment_instructions(order.order_uid, order.price_toman)
+        "✅ سفارش شما ثبت شد.\n\n"
+        + PaymentService().payment_instructions(order.order_uid, order.price_toman),
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(BACK_BUTTON, callback_data="menu_main")]]),
     )
 
 
@@ -92,4 +98,7 @@ async def my_orders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             f"📌 سفارش: {status_labels.get(order.status, order.status)}\n"
             f"💳 پرداخت: {payment_labels.get(order.payment_status, order.payment_status)}"
         )
-    await update.message.reply_text("\n".join(lines), reply_markup=get_main_menu_keyboard())
+    await update.message.reply_text(
+        "\n".join(lines),
+        reply_markup=get_main_menu_keyboard(),
+    )
