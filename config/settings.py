@@ -26,6 +26,7 @@ class Settings:
     database_url: str
     card_number: str
     card_owner: str
+    support_contact: str
     marzban_enabled: bool
     marzban_url: str
     marzban_username: str
@@ -38,6 +39,7 @@ settings = Settings(
     database_url=os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./virex.db"),
     card_number=os.getenv("CARD_NUMBER", ""),
     card_owner=os.getenv("CARD_OWNER", ""),
+    support_contact=os.getenv("SUPPORT_CONTACT", "@Parham88e"),
     marzban_enabled=os.getenv("MARZBAN_ENABLED", "false").lower() == "true",
     marzban_url=os.getenv("MARZBAN_URL", ""),
     marzban_username=os.getenv("MARZBAN_USERNAME", ""),

@@ -5,12 +5,8 @@ from telegram.ext import ContextTypes
 
 from bot.handlers.orders import my_orders, show_plans
 from bot.handlers.users import ensure_user_registered
-from bot.keyboards.main import (
-    BUY_BUTTON,
-    ORDERS_BUTTON,
-    SUPPORT_BUTTON,
-    get_main_menu_keyboard,
-)
+from bot.keyboards.main import get_main_menu_keyboard
+from config.settings import settings
 from database.database import async_session_factory
 
 
@@ -23,10 +19,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     await update.message.reply_text(
         "🚀 به Virex خوش آمدید!\n\n"
-        "خرید VPN سریع و ساده است. ابتدا یک گزینه را انتخاب کنید:\n"
-        "• خرید VPN برای دیدن پلن‌ها\n"
-        "• سفارش‌های من برای پیگیری خریدها\n"
-        "• پشتیبانی برای دریافت راهنمایی",
+        "خرید VPN سریع و ساده است. یکی از گزینه‌های زیر را انتخاب کنید:",
         reply_markup=get_main_menu_keyboard(),
     )
 
@@ -34,10 +27,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def support_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message is None:
         return
+
     await update.message.reply_text(
         "💬 پشتیبانی Virex\n\n"
-        "برای راهنمایی درباره انتخاب پلن، پرداخت یا وضعیت سفارش، همین‌جا پیام خود را ارسال کنید.\n\n"
-        "⏱ رسیدگی به درخواست‌ها پس از بررسی انجام می‌شود.",
+        f"برای تماس با پشتیبانی: {settings.support_contact}\n\n"
+        "اگر درباره سفارش، پرداخت یا پلن‌ها سؤال داری، همین‌جا پیام بده.",
         reply_markup=get_main_menu_keyboard(),
     )
 
@@ -47,11 +41,11 @@ async def main_menu_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
 
     text = update.message.text.strip()
-    if text in {BUY_BUTTON, "خرید VPN", "🛒 خرید کانفیگ", "خرید کانفیگ", "📦 پلن‌ها", "پلن‌ها"}:
+    if text in {"🛒 خرید VPN", "🛒 خرید کانفیگ", "خرید VPN", "خرید کانفیگ", "پلن‌ها", "📦 پلن‌ها"}:
         await show_plans(update, context)
-    elif text in {ORDERS_BUTTON, "سفارش‌های من", "سفارشات من"}:
+    elif text in {"📦 سفارش‌های من", "سفارش‌های من", "سفارشات من"}:
         await my_orders(update, context)
-    elif text in {SUPPORT_BUTTON, "پشتیبانی"}:
+    elif text in {"💬 پشتیبانی", "پشتیبانی"}:
         await support_command(update, context)
     else:
         await update.message.reply_text(
