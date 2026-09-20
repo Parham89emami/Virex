@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, filters
 
-from bot.handlers.admin import admin_panel, confirm_order, reject_order
+from bot.handlers.admin import admin_panel, confirm_order, reject_order, view_receipt
 from bot.handlers.orders import confirm_plan, select_plan, show_plans
 from bot.handlers.payments import handle_receipt
 from bot.handlers.start import (
@@ -28,6 +28,7 @@ def register_handlers(application: Application) -> None:
 
     application.add_handler(CallbackQueryHandler(confirm_plan, pattern=r"^confirm:[a-z0-9]+$"))
     application.add_handler(CallbackQueryHandler(select_plan, pattern=r"^plan:[a-z0-9]+$"))
+    application.add_handler(CallbackQueryHandler(view_receipt, pattern=r"^admin:receipt:[0-9]+$"))
     application.add_handler(CallbackQueryHandler(main_menu_callback, pattern=r"^menu:main$"))
     application.add_handler(CallbackQueryHandler(plans_callback, pattern=r"^menu:plans$"))
 
