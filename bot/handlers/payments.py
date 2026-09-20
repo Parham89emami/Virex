@@ -23,13 +23,11 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     async with async_session_factory() as session:
         order = await get_latest_pending_order_for_user(session, update.effective_user.id)
         if order is None:
-            await update.message.reply_text(
-                "❌ سفارش پرداخت‌نشده‌ای برای ثبت رسید پیدا نشد."
-            )
+            await update.message.reply_text("❌ سفارش پرداخت‌نشده‌ای برای ثبت رسید پیدا نشد.")
             return
         await update_order_review(session, order, file_id, file_name)
 
     await update.message.reply_text(
         "✅ رسید دریافت شد و برای بررسی ارسال شد.\n"
-        "پس از تأیید ادمین، وضعیت سفارش در بخش «سفارش‌های من» تغییر می‌کند."
+        "پس از تأیید ادمین، وضعیت سفارش در بخش «سفارش���های من» تغییر می‌کند."
     )

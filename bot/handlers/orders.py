@@ -4,9 +4,9 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from bot.handlers.users import ensure_user_registered
+from bot.keyboards.main import get_main_menu_keyboard
 from database.database import async_session_factory
 from services.order import create_order_for_user, get_all_orders_for_user
-from services.payment import PaymentService
 from services.vpn import VPNService
 
 
@@ -17,7 +17,7 @@ async def show_plans(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     buttons = [
         [
             InlineKeyboardButton(
-                f"🔹 {plan.traffic_gb} گیگ | ۳۰ روز | {plan.price_toman:,} تومان",
+                f"{plan.traffic_gb} گیگ | ۳۰ روز | {plan.price_toman:,} تومان",
                 callback_data=f"plan:{plan.code}",
             )
         ]
@@ -47,9 +47,10 @@ async def select_plan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         user = await ensure_user_registered(session, update.effective_user)
         order = await create_order_for_user(session, user, plan)
 
+    from services.payment import PaymentService
+
     await query.edit_message_text(
-        "✅ سفارش شما ثبت شد.\n\n"
-        + PaymentService().payment_instructions(order.order_uid, order.price_toman)
+        "✅ سفارش شما ثبت شد.\n\n" + PaymentService().payment_instructions(order.order_uid, order.price_toman)
     )
 
 
@@ -62,7 +63,7 @@ async def my_orders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not orders:
         await update.message.reply_text(
-            "📦 هنوز سفارشی ثبت نکرده‌اید.\n\nبرای شروع، روی «🛒 خرید VPN» بزنید.",
+            "📦 هنوز سفارشی ثبت نکرده‌اید.\n\nبرای شروع روی «🛒 خرید VPN» بزنید.",
             reply_markup=get_main_menu_keyboard(),
         )
         return
@@ -76,8 +77,8 @@ async def my_orders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     payment_labels = {
         "pending": "⏳ پرداخت نشده",
         "pending_review": "🔎 در حال بررسی",
-        "paid": "✅ پرداخت موفق",
         "approved": "✅ تأییدشده",
+        "paid": "✅ پرداخت موفق",
         "rejected": "❌ ردشده",
     }
 

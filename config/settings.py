@@ -12,8 +12,9 @@ def parse_admin_ids(value: str) -> list[int]:
     ids: list[int] = []
     for item in value.split(","):
         try:
-            if item.strip():
-                ids.append(int(item.strip()))
+            item = item.strip()
+            if item:
+                ids.append(int(item))
         except ValueError:
             continue
     return ids

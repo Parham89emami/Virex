@@ -1,5 +1,5 @@
 """Service package marker.
 
-Service modules are imported explicitly by their callers.  Keeping this package
-initializer empty prevents eager imports and circular-import side effects.
+The package intentionally stays lightweight to avoid eager imports and circular
+import chains during bot startup.
 """

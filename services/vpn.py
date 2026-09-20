@@ -30,8 +30,5 @@ class VPNService:
 
     @staticmethod
     def get_plan_by_code(code: str) -> VPNPlan | None:
-        normalized_code = code.strip().lower()
-        return next(
-            (plan for plan in VPNService.get_plans() if plan.code == normalized_code),
-            None,
-        )
+        normalized = (code or "").strip().lower()
+        return next((plan for plan in VPNService.get_plans() if plan.code == normalized), None)
