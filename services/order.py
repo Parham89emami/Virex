@@ -77,6 +77,37 @@ async def get_all_orders_for_user(session: AsyncSession, telegram_id: int) -> li
     return list(result.scalars().all())
 
 
+async def cancel_order_for_user(
+    session: AsyncSession,
+    telegram_id: int,
+    order_id: int,
+) -> Order | None:
+    """Cancel only the user's unpaid or receipt-under-review order."""
+    result = await session.execute(
+        select(Order)
+        .join(Order.user)
+        .options(selectinload(Order.payment))
+        .where(
+            Order.id == order_id,
+            User.telegram_id == telegram_id,
+            Order.status.in_(["pending", "pending_review"]),
+            Order.payment_status.in_(["pending", "pending_review"]),
+        )
+    )
+    order = result.scalar_one_or_none()
+    if order is None:
+        return None
+
+    order.status = "cancelled"
+    order.payment_status = "cancelled"
+    if order.payment is not None:
+        order.payment.status = "cancelled"
+        order.payment.reviewed_at = datetime.now(timezone.utc)
+    await session.commit()
+    await session.refresh(order)
+    return order
+
+
 async def update_order_review(
     session: AsyncSession,
     order: Order,

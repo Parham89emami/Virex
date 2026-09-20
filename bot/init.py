@@ -7,6 +7,8 @@ from bot.handlers.orders import confirm_plan, select_plan, show_plans
 from bot.handlers.payments import handle_receipt
 from bot.handlers.start import (
     about_command,
+    cancel_order_callback,
+    confirm_cancel_order,
     main_menu_callback,
     main_menu_router,
     orders_command,
@@ -29,6 +31,8 @@ def register_handlers(application: Application) -> None:
     application.add_handler(CallbackQueryHandler(confirm_plan, pattern=r"^confirm:[a-z0-9]+$"))
     application.add_handler(CallbackQueryHandler(select_plan, pattern=r"^plan:[a-z0-9]+$"))
     application.add_handler(CallbackQueryHandler(view_receipt, pattern=r"^admin:receipt:[0-9]+$"))
+    application.add_handler(CallbackQueryHandler(confirm_cancel_order, pattern=r"^cancel:confirm:[0-9]+$"))
+    application.add_handler(CallbackQueryHandler(cancel_order_callback, pattern=r"^cancel:(?:yes|no):[0-9]+$"))
     application.add_handler(CallbackQueryHandler(main_menu_callback, pattern=r"^menu:main$"))
     application.add_handler(CallbackQueryHandler(plans_callback, pattern=r"^menu:plans$"))
 
