@@ -1,6 +1,25 @@
-from .marzban import MarzbanService
-from .order import create_order_for_user, get_all_orders_for_user, get_latest_pending_order_for_user, get_pending_orders, update_order_review, update_order_status
-from .payment import PaymentService
-from .vpn import VPNPlan, VPNService
+from __future__ import annotations
 
-__all__ = ["MarzbanService", "PaymentService", "VPNPlan", "VPNService", "create_order_for_user", "get_all_orders_for_user", "get_latest_pending_order_for_user", "get_pending_orders", "update_order_review", "update_order_status"]
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, filters
+
+from bot.handlers.admin import admin_panel, confirm_order, reject_order
+from bot.handlers.orders import confirm_plan_order, my_orders, select_plan, show_plans
+from bot.handlers.payments import handle_receipt
+from bot.handlers.start import main_menu_router, start, support_command
+
+
+def register_handlers(application: Application) -> None:
+    """Register handlers once and keep the flow simple and readable."""
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("admin", admin_panel))
+    application.add_handler(CommandHandler("confirm", confirm_order))
+    application.add_handler(CommandHandler("reject", reject_order))
+    application.add_handler(CommandHandler("plans", show_plans))
+    application.add_handler(CommandHandler("orders", my_orders))
+    application.add_handler(CommandHandler("support", support_command))
+
+    application.add_handler(CallbackQueryHandler(select_plan, pattern=r"^plan:"))
+    application.add_handler(CallbackQueryHandler(confirm_plan_order, pattern=r"^confirm_order:"))
+
+    application.add_handler(MessageHandler(filters.PHOTO | filters.Document.ALL, handle_receipt))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, main_menu_router))

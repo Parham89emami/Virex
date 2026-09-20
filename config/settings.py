@@ -11,9 +11,10 @@ load_dotenv()
 def parse_admin_ids(value: str) -> list[int]:
     ids: list[int] = []
     for item in value.split(","):
+        if not item.strip():
+            continue
         try:
-            if item.strip():
-                ids.append(int(item.strip()))
+            ids.append(int(item.strip()))
         except ValueError:
             continue
     return ids
@@ -30,6 +31,7 @@ class Settings:
     marzban_url: str
     marzban_username: str
     marzban_password: str
+    support_contact: str
 
 
 settings = Settings(
@@ -38,8 +40,9 @@ settings = Settings(
     database_url=os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./virex.db"),
     card_number=os.getenv("CARD_NUMBER", ""),
     card_owner=os.getenv("CARD_OWNER", ""),
-    marzban_enabled=os.getenv("MARZBAN_ENABLED", "false").lower() == "true",
+    marzban_enabled=os.getenv("MARZBAN_ENABLED", "false").strip().lower() == "true",
     marzban_url=os.getenv("MARZBAN_URL", ""),
     marzban_username=os.getenv("MARZBAN_USERNAME", ""),
     marzban_password=os.getenv("MARZBAN_PASSWORD", ""),
+    support_contact=os.getenv("SUPPORT_CONTACT", "@VirexSupport"),
 )
