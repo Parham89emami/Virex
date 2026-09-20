@@ -13,14 +13,16 @@ from services.vpn import VPNService
 async def show_plans(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message is None:
         return
-    buttons = []
-    for plan in VPNService.get_plans():
-        buttons.append([
+
+    buttons = [
+        [
             InlineKeyboardButton(
-                f"{plan.name} | {plan.traffic_gb} گیگ | {plan.duration_days} روز | {plan.price_toman:,} تومان",
+                f"{plan.traffic_gb} گیگ | ۳۰ روز | {plan.price_toman:,} تومان",
                 callback_data=f"plan:{plan.code}",
             )
-        ])
+        ]
+        for plan in VPNService.get_plans()
+    ]
     await update.message.reply_text(
         "📋 پلن موردنظر خود را انتخاب کنید:",
         reply_markup=InlineKeyboardMarkup(buttons),
