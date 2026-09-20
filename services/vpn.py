@@ -16,10 +16,16 @@ class VPNService:
     @staticmethod
     def get_plans() -> list[VPNPlan]:
         return [
-            VPNPlan("basic", "اقتصادی", 10, 30, 280000),
-            VPNPlan("standard", "استاندارد", 25, 60, 520000),
-            VPNPlan("pro", "حرفه‌ای", 60, 90, 980000),
-            VPNPlan("business", "سازمانی", 200, 180, 1760000),
+            VPNPlan("plan_10gb", "اقتصادی", 10, 30, 49000),
+            VPNPlan("plan_20gb", "معیاری", 20, 30, 68000),
+            VPNPlan("plan_30gb", "حرفه‌ای", 30, 30, 87000),
+            VPNPlan("plan_40gb", "استاندارد", 40, 30, 106000),
+            VPNPlan("plan_50gb", "محبوب", 50, 30, 125000),
+            VPNPlan("plan_60gb", "پیشرفته", 60, 30, 144000),
+            VPNPlan("plan_70gb", "تجاری", 70, 30, 163000),
+            VPNPlan("plan_80gb", "ویژه", 80, 30, 182000),
+            VPNPlan("plan_90gb", "سازمانی", 90, 30, 201000),
+            VPNPlan("plan_100gb", "طلایی", 100, 30, 220000),
         ]
 
     @staticmethod
