@@ -35,22 +35,21 @@ async def select_plan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     query = update.callback_query
     if query is None or update.effective_user is None:
         return
-    await query.answer()
 
+    await query.answer()
     code = (query.data or "").split(":", 1)[-1]
     plan = VPNService.get_plan_by_code(code)
     if plan is None:
-        await query.edit_message_text("❌ پلن انتخاب‌شده معتبر نیست. لطفاً دوباره از منو انتخاب کنید.")
+        await query.edit_message_text("❌ پلن انتخاب‌شده معتبر نیست. دوباره از منو انتخاب کنید.")
         return
 
     async with async_session_factory() as session:
         user = await ensure_user_registered(session, update.effective_user)
         order = await create_order_for_user(session, user, plan)
 
-    payment = PaymentService()
     await query.edit_message_text(
         "✅ سفارش شما ثبت شد.\n\n"
-        + payment.payment_instructions(order.order_uid, order.price_toman)
+        + PaymentService().payment_instructions(order.order_uid, order.price_toman)
     )
 
 
@@ -63,7 +62,8 @@ async def my_orders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not orders:
         await update.message.reply_text(
-            "📦 هنوز سفارشی ثبت نکرده‌اید.\n\nبرای شروع، روی «🛒 خرید VPN» بزنید."
+            "📦 هنوز سفارشی ثبت نکرده‌اید.\n\nبرای شروع، روی «🛒 خرید VPN» بزنید.",
+            reply_markup=get_main_menu_keyboard(),
         )
         return
 
@@ -76,8 +76,8 @@ async def my_orders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     payment_labels = {
         "pending": "⏳ پرداخت نشده",
         "pending_review": "🔎 در حال بررسی",
-        "approved": "✅ تأییدشده",
         "paid": "✅ پرداخت موفق",
+        "approved": "✅ تأییدشده",
         "rejected": "❌ ردشده",
     }
 
@@ -91,4 +91,4 @@ async def my_orders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             f"📌 سفارش: {status_labels.get(order.status, order.status)}\n"
             f"💳 پرداخت: {payment_labels.get(order.payment_status, order.payment_status)}"
         )
-    await update.message.reply_text("\n".join(lines))
+    await update.message.reply_text("\n".join(lines), reply_markup=get_main_menu_keyboard())

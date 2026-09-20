@@ -31,9 +31,13 @@ async def support_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await update.message.reply_text(
         "💬 پشتیبانی Virex\n\n"
         f"برای تماس با پشتیبانی: {settings.support_contact}\n\n"
-        "اگر درباره سفارش، پرداخت یا پلن‌ها سؤال داری، همین‌جا پیام بده.",
+        "اگر درباره سفارش، پرداخت یا پلن‌ها سؤال داری، پیام بده.",
         reply_markup=get_main_menu_keyboard(),
     )
+
+
+async def orders_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await my_orders(update, context)
 
 
 async def main_menu_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -44,7 +48,7 @@ async def main_menu_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if text in {"🛒 خرید VPN", "🛒 خرید کانفیگ", "خرید VPN", "خرید کانفیگ", "پلن‌ها", "📦 پلن‌ها"}:
         await show_plans(update, context)
     elif text in {"📦 سفارش‌های من", "سفارش‌های من", "سفارشات من"}:
-        await my_orders(update, context)
+        await orders_command(update, context)
     elif text in {"💬 پشتیبانی", "پشتیبانی"}:
         await support_command(update, context)
     else:
