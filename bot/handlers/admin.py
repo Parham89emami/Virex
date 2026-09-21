@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import timezone
 
 from sqlalchemy import func, select
 from telegram import Update
@@ -9,7 +9,7 @@ from telegram.ext import ContextTypes
 
 from config.settings import settings
 from database.database import async_session_factory
-from database.models import Coupon, Order, Product, User, VPNConfig, WalletTransaction
+from database.models import Order, Product, User, VPNConfig, WalletTransaction
 from services.order import approve_and_deliver
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         pending = (await s.execute(select(func.count(Order.id)).where(Order.status == "pending_review"))).scalar() or 0
         sales = (await s.execute(select(func.coalesce(func.sum(Order.price_toman), 0)).where(Order.status == "completed"))).scalar() or 0
         stock = (await s.execute(select(func.count(VPNConfig.id)).where(VPNConfig.status == "available"))).scalar() or 0
-    await update.message.reply_text(f"👑 پنل مدیریت Virex\n👥 کاربران: {total_users}\n🧾 سفارش‌ها: {total_orders}\n✅ تکمیل‌شده: {completed}\n⏳ در انتظار بررسی: {pending}\n💰 فروش: {sales:,} تومان\n🔐 موجودی: {stock}\n\nمحصولات: /products\nموجودی: /configs")
+    await update.message.reply_text(f"👑 پنل مدیریت Virex\n👥 کاربران: {total_users}\n🧾 سفارش‌ها: {total_orders}\n✅ تکمیل‌شده: {completed}\n⏳ در انتظار بررسی: {pending}\n💰 فروش: {sales:,} تومان\n🔐 موجودی: {stock}")
 
 
 async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -80,7 +80,7 @@ async def add_product(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def edit_product(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message or denied(update) or len(context.args) < 4: return
-    try: product = None; pid, volume, days, price = map(int, context.args[:4])
+    try: pid, volume, days, price = map(int, context.args[:4])
     except ValueError: await update.message.reply_text("فرمت: /editproduct شناسه حجم مدت قیمت"); return
     async with async_session_factory() as s:
         product = await s.get(Product, pid)
@@ -141,15 +141,6 @@ async def set_block(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user = (await s.execute(select(User).where(User.telegram_id == int(context.args[0])))).scalar_one_or_none()
         if user: user.is_blocked = blocked; await s.commit()
     await update.message.reply_text("✅ وضعیت کاربر تغییر کرد." if user else "کاربر پیدا نشد.")
-
-
-async def create_coupon(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or denied(update) or len(context.args) < 3: return
-    try:
-        code, kind, value = context.args[:3]; value = int(value); limit = int(context.args[3]) if len(context.args) > 3 else None
-    except ValueError: await update.message.reply_text("فرمت: /coupon کد percent|amount مقدار [سقف]"); return
-    async with async_session_factory() as s: s.add(Coupon(code=code.upper(), discount_percent=value if kind == "percent" else None, discount_amount=value if kind == "amount" else None, usage_limit=limit)); await s.commit()
-    await update.message.reply_text("✅ کوپن ساخته شد.")
 
 
 async def wallet_adjust(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

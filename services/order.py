@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import Coupon, CouponUsage, Order, Product, User, VPNConfig, WalletTransaction
+from database.models import Order, Product, User, VPNConfig, WalletTransaction
 
 
 async def get_or_create_user(session: AsyncSession, telegram_user: Any) -> User:
@@ -29,25 +29,9 @@ async def active_products(session: AsyncSession) -> list[Product]:
     return list((await session.execute(select(Product).where(Product.is_active.is_(True)).order_by(Product.volume_gb))).scalars().all())
 
 
-async def coupon_price(session: AsyncSession, code: str, user_id: int, price: int):
-    coupon = (await session.execute(select(Coupon).where(Coupon.code == code.strip().upper(), Coupon.is_active.is_(True)))).scalar_one_or_none()
-    if not coupon:
-        return price, None, "کد تخفیف معتبر نیست."
-    if coupon.usage_limit is not None and coupon.used_count >= coupon.usage_limit:
-        return price, None, "ظرفیت کد تخفیف تمام شده است."
-    used = (await session.execute(select(CouponUsage.id).where(CouponUsage.coupon_id == coupon.id, CouponUsage.user_id == user_id))).scalar_one_or_none()
-    if used:
-        return price, None, "این کد قبلاً استفاده شده است."
-    discount = coupon.discount_amount or price * (coupon.discount_percent or 0) // 100
-    return max(0, price - discount), coupon, None
-
-
-async def create_order(session: AsyncSession, user: User, product: Product, price: int, coupon: Coupon | None = None, payment_method: str = "card") -> Order:
+async def create_order(session: AsyncSession, user: User, product: Product, price: int, payment_method: str = "card") -> Order:
     order = Order(order_uid=f"VIR-{uuid.uuid4().hex[:8].upper()}", user_id=user.id, product_id=product.id, plan_name=product.name, traffic_gb=product.volume_gb, duration_days=product.duration_days, price_toman=price, original_price=product.price, payment_method=payment_method)
     session.add(order)
-    if coupon:
-        coupon.used_count += 1
-        session.add(CouponUsage(coupon_id=coupon.id, user_id=user.id))
     await session.flush()
     return order
 
@@ -82,11 +66,7 @@ async def approve_and_deliver(session: AsyncSession, order_id: int) -> tuple[Ord
     config = (await session.execute(select(VPNConfig).where(VPNConfig.product_id == order.product_id, VPNConfig.status == "available").order_by(VPNConfig.id).limit(1))).scalar_one_or_none()
     if not config:
         return order, None
-    result = await session.execute(
-        update(VPNConfig)
-        .where(VPNConfig.id == config.id, VPNConfig.status == "available")
-        .values(status="sold", sold_to_user_id=order.user_id, order_id=order.id, sold_at=datetime.now(timezone.utc))
-    )
+    result = await session.execute(update(VPNConfig).where(VPNConfig.id == config.id, VPNConfig.status == "available").values(status="sold", sold_to_user_id=order.user_id, order_id=order.id, sold_at=datetime.now(timezone.utc)))
     if result.rowcount != 1:
         await session.rollback()
         return order, None

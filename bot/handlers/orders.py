@@ -3,11 +3,10 @@ from __future__ import annotations
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from bot.handlers.users import ensure_user_registered
-from bot.keyboards.main import get_main_menu_keyboard
-from config.settings import settings
+from bot.keyboards.main import get_main_menu_keyboard, get_payment_keyboard
 from database.database import async_session_factory
 from database.models import Product
-from services.order import active_products, coupon_price, create_order, debit_wallet, user_orders
+from services.order import active_products, create_order, debit_wallet, user_orders
 from services.payment import PaymentService
 
 
@@ -39,30 +38,12 @@ async def select_plan(update, context):
             await query.edit_message_text("❌ محصول فعال نیست.")
             return
     context.user_data["product_id"] = product_id
-    await query.edit_message_text("🎟 کد تخفیف را بفرستید یا «ندارم» را ارسال کنید.")
-
-
-async def handle_coupon_input(update, context):
-    if not update.message or not update.effective_user:
-        return
-    if "product_id" not in context.user_data:
-        from bot.handlers.start import main_menu_router
-        await main_menu_router(update, context)
-        return
-    code = update.message.text.strip()
-    async with async_session_factory() as session:
-        user = await ensure_user_registered(session, update.effective_user)
-        product = await session.get(Product, context.user_data["product_id"])
-        if not product or not product.is_active or user.is_blocked:
-            await update.message.reply_text("🚫 خرید ممکن نیست.", reply_markup=get_main_menu_keyboard())
-            context.user_data.clear()
-            return
-        amount, coupon, error = (product.price, None, None) if code.lower() in {"ندارم", "no", "none"} else await coupon_price(session, code, user.id, product.price)
-    if error:
-        await update.message.reply_text(f"❌ {error}")
-        return
-    context.user_data["coupon"] = code if coupon else None
-    await update.message.reply_text(f"💰 مبلغ نهایی: {amount:,} تومان", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💳 کارت‌به‌کارت", callback_data="pay:card"), InlineKeyboardButton("💰 کیف پول", callback_data="pay:wallet")]]))
+    await query.edit_message_text(
+        f"📦 {product.volume_gb}GB | {product.duration_days} روز\n"
+        f"💰 مبلغ نهایی: {product.price:,} تومان\n\n"
+        "روش پرداخت را انتخاب کنید:",
+        reply_markup=get_payment_keyboard(),
+    )
 
 
 async def payment_choice(update, context):
@@ -77,14 +58,11 @@ async def payment_choice(update, context):
         if user.is_blocked or not product or not product.is_active:
             await query.edit_message_text("🚫 خرید ممکن نیست.")
             return
-        amount, coupon, error = (product.price, None, None) if not context.user_data.get("coupon") else await coupon_price(session, context.user_data["coupon"], user.id, product.price)
-        if error:
-            await query.edit_message_text(f"❌ {error}")
-            return
+        amount = product.price
         if method == "wallet" and not await debit_wallet(session, user, amount, f"خرید {product.name}"):
             await query.edit_message_text("❌ موجودی کیف پول کافی نیست.")
             return
-        order = await create_order(session, user, product, amount, coupon, method)
+        order = await create_order(session, user, product, amount, method)
         if method == "wallet":
             order.status = order.payment_status = "pending_review"
         await session.commit()
@@ -101,7 +79,7 @@ async def my_orders(update, context):
     async with async_session_factory() as session:
         user = await ensure_user_registered(session, update.effective_user)
         if user.is_blocked:
-            await update.message.reply_text("🚫 حس��ب شما مسدود است.")
+            await update.message.reply_text("🚫 حساب شما مسدود است.")
             return
         orders = await user_orders(session, update.effective_user.id)
     labels = {"pending": "⏳ در انتظار پرداخت", "pending_review": "🔎 در انتظار بررسی", "completed": "✅ تکمیل‌شده", "rejected": "❌ ردشده"}

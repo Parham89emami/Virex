@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column, relationship
 
 Base = declarative_base()
@@ -66,26 +66,6 @@ class VPNConfig(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     sold_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     product: Mapped[Product] = relationship(back_populates="configs")
-
-
-class Coupon(Base):
-    __tablename__ = "coupons"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    code: Mapped[str] = mapped_column(String(64), unique=True, index=True)
-    discount_percent: Mapped[int | None] = mapped_column(Integer)
-    discount_amount: Mapped[int | None] = mapped_column(Integer)
-    usage_limit: Mapped[int | None] = mapped_column(Integer)
-    used_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-
-
-class CouponUsage(Base):
-    __tablename__ = "coupon_usages"
-    __table_args__ = (UniqueConstraint("coupon_id", "user_id", name="uq_coupon_user"),)
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    coupon_id: Mapped[int] = mapped_column(ForeignKey("coupons.id"))
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class WalletTransaction(Base):

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncGenerator
-from sqlalchemy import select
+
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from config.settings import settings
@@ -12,24 +13,31 @@ logger = logging.getLogger(__name__)
 engine = create_async_engine(settings.database_url, future=True, pool_pre_ping=True)
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
-DEFAULT_PRODUCTS = (
-    ("Virex 5GB", 5, 30, 30_000),
-    ("Virex 10GB", 10, 30, 60_000),
-    ("Virex 20GB", 20, 30, 120_000),
-    ("Virex 50GB", 50, 30, 200_000),
-    ("Virex 100GB", 100, 30, 345_000),
-)
+DEFAULT_PRODUCTS = {
+    5: ("Virex 5GB", 30, 30_000),
+    10: ("Virex 10GB", 30, 60_000),
+    20: ("Virex 20GB", 30, 120_000),
+    50: ("Virex 50GB", 30, 200_000),
+    100: ("Virex 100GB", 30, 345_000),
+}
 
 
 async def init_db() -> None:
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
+        await connection.execute(text("DROP TABLE IF EXISTS coupon_usages"))
+        await connection.execute(text("DROP TABLE IF EXISTS coupons"))
     async with async_session_factory() as session:
-        existing = (await session.execute(select(Product.id).limit(1))).scalar_one_or_none()
-        if existing is None:
-            session.add_all([Product(name=n, volume_gb=v, duration_days=d, price=p) for n, v, d, p in DEFAULT_PRODUCTS])
-            await session.commit()
-    logger.info("Database initialized")
+        products = (await session.execute(select(Product))).scalars().all()
+        by_volume = {product.volume_gb: product for product in products}
+        for volume, (name, days, price) in DEFAULT_PRODUCTS.items():
+            product = by_volume.get(volume)
+            if product is None:
+                session.add(Product(name=name, volume_gb=volume, duration_days=days, price=price))
+            else:
+                product.name, product.duration_days, product.price, product.is_active = name, days, price, True
+        await session.commit()
+    logger.info("Database initialized without coupon tables")
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
