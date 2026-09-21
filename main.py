@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from telegram import Update
+from telegram import BotCommand, Update
 from telegram.ext import ApplicationBuilder, ContextTypes
 
 from bot.init import register_handlers
@@ -22,6 +22,13 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def post_init(application) -> None:
+    # Replace Telegram's command menu on every startup. This applies to the
+    # default scope and therefore also covers admins unless another explicit
+    # scope is configured outside this application.
+    await application.bot.set_my_commands(
+        [BotCommand("start", "🚀 شروع ربات")]
+    )
+    logger.info("Telegram command menu configured with /start only")
     await acquire_instance_lock()
     logger.info("Virex polling instance lock acquired")
 
