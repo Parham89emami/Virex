@@ -30,6 +30,7 @@ class Settings:
     card_owner: str
     support_contact: str
     log_level: str
+    instance_lock_key: int
 
 
 settings = Settings(
@@ -40,4 +41,5 @@ settings = Settings(
     card_owner=os.getenv("CARD_OWNER", "").strip(),
     support_contact=os.getenv("SUPPORT_CONTACT", "@Parham88e").strip() or "@Parham88e",
     log_level=os.getenv("LOG_LEVEL", "INFO").strip(),
+    instance_lock_key=int(os.getenv("INSTANCE_LOCK_KEY", "1377642930")),
 )
