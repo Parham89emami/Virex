@@ -38,6 +38,6 @@ settings = Settings(
     database_url=normalize_database_url(os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./virex.db")),
     card_number=os.getenv("CARD_NUMBER", "").strip(),
     card_owner=os.getenv("CARD_OWNER", "").strip(),
-    support_contact=os.getenv("SUPPORT_CONTACT", "@VirexSupport").strip(),
+    support_contact=os.getenv("SUPPORT_CONTACT", "@Parham88e").strip() or "@Parham88e",
     log_level=os.getenv("LOG_LEVEL", "INFO").strip(),
 )
