@@ -76,3 +76,18 @@ class WalletTransaction(Base):
     transaction_type: Mapped[str] = mapped_column(String(32))
     description: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class WalletTopupRequest(Base):
+    __tablename__ = "wallet_topup_requests"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    card_number: Mapped[str] = mapped_column(String(64), nullable=False)
+    card_owner: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    receipt_file_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    receipt_file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
