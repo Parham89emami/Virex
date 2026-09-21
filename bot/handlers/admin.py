@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import logging
-from datetime import timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from bot.keyboards.main import inline_menu
 from config.settings import settings
 from database.database import async_session_factory
 from database.models import Order, Product, User, VPNConfig, WalletTransaction
@@ -23,141 +24,130 @@ def denied(update: Update) -> bool:
     return not is_admin(update.effective_user.id if update.effective_user else None)
 
 
+def admin_keyboard() -> InlineKeyboardMarkup:
+    return inline_menu([
+        [("📦 مدیریت محصولات", "admin:products"), ("🔐 مدیریت کانفیگ‌ها", "admin:configs")],
+        [("🧾 مدیریت سفارش‌ها", "admin:orders"), ("👥 مدیریت کاربران", "admin:users")],
+        [("💰 مدیریت کیف پول", "admin:wallet"), ("📊 گزارش‌ها", "admin:reports")],
+        [("🛟 پشتیبانی", "admin:support"), ("🔙 بازگشت", "admin:back")],
+    ])
+
+
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message: return
-    if denied(update): await update.message.reply_text("⛔ دسترسی غیرمجاز."); return
-    async with async_session_factory() as s:
-        total_users = (await s.execute(select(func.count(User.id)))).scalar() or 0
-        total_orders = (await s.execute(select(func.count(Order.id)))).scalar() or 0
-        completed = (await s.execute(select(func.count(Order.id)).where(Order.status == "completed"))).scalar() or 0
-        pending = (await s.execute(select(func.count(Order.id)).where(Order.status == "pending_review"))).scalar() or 0
-        sales = (await s.execute(select(func.coalesce(func.sum(Order.price_toman), 0)).where(Order.status == "completed"))).scalar() or 0
-        stock = (await s.execute(select(func.count(VPNConfig.id)).where(VPNConfig.status == "available"))).scalar() or 0
-    await update.message.reply_text(f"👑 پنل مدیریت Virex\n👥 کاربران: {total_users}\n🧾 سفارش‌ها: {total_orders}\n✅ تکمیل‌شده: {completed}\n⏳ در انتظار بررسی: {pending}\n💰 فروش: {sales:,} تومان\n🔐 موجودی: {stock}")
+    if denied(update):
+        if update.callback_query: await update.callback_query.answer("دسترسی غیرمجاز", show_alert=True)
+        elif update.message: await update.message.reply_text("⛔ دسترسی غیرمجاز.")
+        return
+    text = "⚙️ پنل مدیریت Virex\n\nبخش موردنظر را انتخاب کنید:"
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text, reply_markup=admin_keyboard())
+    elif update.message:
+        await update.message.reply_text(text, reply_markup=admin_keyboard())
 
 
+async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query or not is_admin(update.effective_user.id if update.effective_user else None):
+        if query: await query.answer("دسترسی غیرمجاز", show_alert=True)
+        return
+    await query.answer()
+    action = (query.data or "").split(":", 1)[1]
+    if action == "back":
+        await query.edit_message_text("منوی اصلی Virex را از دکمه‌های پایین انتخاب کنید.")
+    elif action == "products":
+        await query.edit_message_text("📦 مدیریت محصولات", reply_markup=inline_menu([[('➕ افزودن محصول', 'admin:help:addproduct'), ('✏️ ویرایش محصول', 'admin:help:editproduct')], [('🔴/🟢 فعال/غیرفعال', 'admin:help:toggleproduct'), ('🗑 حذف محصول', 'admin:list:deleteproduct')], [('🔙 بازگشت', 'admin:menu')]]))
+    elif action == "configs":
+        await query.edit_message_text("🔐 مدیریت کانفیگ‌ها", reply_markup=inline_menu([[('➕ افزودن کانفیگ', 'admin:help:addconfig'), ('📋 موجودی کانفیگ‌ها', 'admin:list:configs')], [('✅ کانفیگ‌های موجود', 'admin:list:available'), ('🔴 کانفیگ‌های فروخته‌شده', 'admin:list:sold')], [('🗑 حذف کانفیگ', 'admin:list:deleteconfig'), ('🔙 بازگشت', 'admin:menu')]]))
+    elif action == "orders":
+        await query.edit_message_text("🧾 مدیریت سفارش‌ها", reply_markup=inline_menu([[('📋 سفارش‌های در انتظار', 'admin:list:pending')], [('✅ تأیید سفارش', 'admin:help:confirm'), ('❌ رد سفارش', 'admin:help:reject')], [('🔎 مشاهده جزئیات سفارش', 'admin:help:order'), ('🔙 بازگشت', 'admin:menu')]]))
+    elif action == "users":
+        await query.edit_message_text("👥 مدیریت کاربران", reply_markup=inline_menu([[('🔎 جستجوی کاربر', 'admin:help:user'), ('🚫 مسدود کردن', 'admin:help:block')], [('✅ رفع مسدودی', 'admin:help:unblock'), ('💰 موجودی کیف پول', 'admin:help:user')], [('🔙 بازگشت', 'admin:menu')]]))
+    elif action == "wallet":
+        await query.edit_message_text("💰 مدیریت کیف پول", reply_markup=inline_menu([[('➕ افزایش موجودی', 'admin:help:walletadd'), ('➖ کاهش موجودی', 'admin:help:walletsub')], [('📋 تراکنش‌های کیف پول', 'admin:list:wallet'), ('🔙 بازگشت', 'admin:menu')]]))
+    elif action == "reports":
+        await send_reports(query)
+    elif action == "support":
+        await query.edit_message_text("🛟 پشتیبانی Virex\n\n👤 @Parham88e", reply_markup=inline_menu([[('🔙 بازگشت', 'admin:menu')]]))
+    elif action == "menu":
+        await query.edit_message_text("⚙️ پنل مدیریت Virex\n\nبخش موردنظر را انتخاب کنید:", reply_markup=admin_keyboard())
+    elif action.startswith("help:"):
+        command = action.split(":", 1)[1]
+        messages = {'addproduct':'/addproduct نام حجم مدت قیمت', 'editproduct':'/editproduct شناسه حجم مدت قیمت', 'toggleproduct':'/toggleproduct شناسه', 'addconfig':'/addconfig شناسه_محصول متن_کانفیگ', 'confirm':'/confirm شناسه_داخلی', 'reject':'/reject شناسه_داخلی', 'order':'/order شناسه_داخلی', 'user':'/user شناسه_تلگرام', 'block':'/block شناسه_تلگرام', 'unblock':'/unblock شناسه_تلگرام', 'walletadd':'/walletadd شناسه_تلگرام مبلغ', 'walletsub':'/walletadd شناسه_تلگرام مبلغ_منفی'}
+        await query.edit_message_text(f"برای انجام عملیات، دستور زیر را ارسال کنید:\n\n{messages.get(command, 'دستور نامعتبر است.')}", reply_markup=inline_menu([[('🔙 بازگشت', 'admin:menu')]]))
+    elif action.startswith("list:"):
+        await admin_list(query, action.split(":", 1)[1])
+    elif action.startswith("delete:"):
+        await delete_confirmation(query, action)
+    elif action.startswith("confirmdelete:"):
+        await confirm_delete(query, action)
+
+
+async def send_reports(query) -> None:
+    now = datetime.now(timezone.utc)
+    start_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start_month = start_day.replace(day=1)
+    async with async_session_factory() as session:
+        today = (await session.execute(select(func.coalesce(func.sum(Order.price_toman), 0)).where(Order.status == 'completed', Order.completed_at >= start_day))).scalar() or 0
+        month = (await session.execute(select(func.coalesce(func.sum(Order.price_toman), 0)).where(Order.status == 'completed', Order.completed_at >= start_month))).scalar() or 0
+        total = (await session.execute(select(func.coalesce(func.sum(Order.price_toman), 0)).where(Order.status == 'completed'))).scalar() or 0
+        orders = (await session.execute(select(func.count(Order.id)))).scalar() or 0
+        users = (await session.execute(select(func.count(User.id)))).scalar() or 0
+    await query.edit_message_text(f"📊 گزارش‌های Virex\n\n📈 فروش امروز: {today:,} تومان\n📊 فروش این ماه: {month:,} تومان\n💰 مجموع فروش: {total:,} تومان\n📦 تعداد سفارش‌ها: {orders}\n👥 تعداد کاربران: {users}", reply_markup=inline_menu([[('🔙 بازگشت', 'admin:menu')]]))
+
+
+async def admin_list(query, kind: str) -> None:
+    async with async_session_factory() as session:
+        if kind == 'pending':
+            rows = (await session.execute(select(Order).where(Order.status == 'pending_review').order_by(Order.created_at.desc()).limit(30))).scalars().all()
+            text = '📋 سفارش‌��ای در انتظار\n\n' + ('\n'.join(f'#{o.id} | {o.order_uid} | {o.price_toman:,} تومان' for o in rows) if rows else 'موردی وجود ندارد.')
+        elif kind in {'configs', 'available', 'sold'}:
+            query_stmt = select(VPNConfig).order_by(VPNConfig.id)
+            if kind != 'configs': query_stmt = query_stmt.where(VPNConfig.status == kind)
+            rows = (await session.execute(query_stmt.limit(50))).scalars().all()
+            text = '🔐 موجودی کانفیگ‌ها\n\n' + ('\n'.join(f'#{c.id} | محصول {c.product_id} | {c.status}' for c in rows) if rows else 'موردی وجود ندارد.')
+        elif kind == 'deleteproduct':
+            rows = (await session.execute(select(Product).where(Product.is_active.is_(True)).order_by(Product.id))).scalars().all()
+            await query.edit_message_text('🗑 حذف محصول: مورد را انتخاب کنید', reply_markup=inline_menu([[(f'محصول #{p.id} - {p.volume_gb}GB', f'admin:delete:product:{p.id}')] for p in rows] + [[('🔙 بازگشت', 'admin:products')]])); return
+        elif kind == 'deleteconfig':
+            rows = (await session.execute(select(VPNConfig).where(VPNConfig.status == 'available').order_by(VPNConfig.id))).scalars().all()
+            await query.edit_message_text('🗑 حذف کانفیگ: مورد را انتخاب کنید', reply_markup=inline_menu([[(f'کانفیگ #{c.id} - محصول {c.product_id}', f'admin:delete:config:{c.id}')] for c in rows] + [[('🔙 بازگشت', 'admin:configs')]])); return
+        elif kind == 'wallet':
+            rows = (await session.execute(select(WalletTransaction).order_by(WalletTransaction.created_at.desc()).limit(30))).scalars().all()
+            text = '📋 تراکنش‌های کیف پول\n\n' + ('\n'.join(f'کاربر {r.user_id} | {r.amount:+,} | {r.transaction_type}' for r in rows) if rows else 'موردی وجود ندارد.')
+        else: text = 'موردی وجود ندارد.'
+    await query.edit_message_text(text, reply_markup=inline_menu([[('🔙 بازگشت', 'admin:menu')]]))
+
+
+async def delete_confirmation(query, action: str) -> None:
+    kind, item_id = action.split(':')[1:]
+    await query.edit_message_text('⚠️ حذف این مورد قطعی است؟ این عملیات قابل بازگشت نیست.', reply_markup=inline_menu([[('✅ بله، حذف شود', f'admin:confirmdelete:{kind}:{item_id}'), ('❌ انصراف', 'admin:menu')]]))
+
+
+async def confirm_delete(query, action: str) -> None:
+    kind, item_id = action.split(':')[1:]
+    async with async_session_factory() as session:
+        model = Product if kind == 'product' else VPNConfig
+        item = await session.get(model, int(item_id))
+        if not item or (kind == 'config' and item.status != 'available'):
+            await query.edit_message_text('❌ مورد پیدا نشد یا قابل حذف نیست.', reply_markup=inline_menu([[('🔙 بازگشت', 'admin:menu')]])); return
+        if kind == 'product': item.is_active = False
+        else: await session.delete(item)
+        await session.commit()
+    await query.edit_message_text('✅ عملیات حذف با موفقیت انجام شد.', reply_markup=inline_menu([[('🔙 بازگشت', 'admin:menu')]]))
+
+
+# Legacy command handlers remain guarded and reuse the existing atomic delivery service.
 async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message or denied(update) or not context.args or not context.args[0].isdigit(): return
-    async with async_session_factory() as s:
-        order, config = await approve_and_deliver(s, int(context.args[0]))
-        user = await s.get(User, order.user_id) if order and config else None
-    if not order: await update.message.reply_text("❌ سفارش پیدا نشد."); return
-    if not config: await update.message.reply_text("⚠️ کانفیگ available برای این محصول وجود ندارد؛ سفارش تکمیل نشد."); return
-    try:
-        await context.bot.send_message(user.telegram_id, f"✅ پرداخت سفارش {order.order_uid} تأیید شد!\n\n🔐 کانفیگ Virex شما:\n{config.config_text}")
-    except Exception:
-        logger.exception("Delivery failed for order %s", order.id)
-    await update.message.reply_text(f"✅ سفارش {order.order_uid} تکمیل و کانفیگ به کاربر ارسال شد.")
+    async with async_session_factory() as session:
+        order, config = await approve_and_deliver(session, int(context.args[0]))
+        user = await session.get(User, order.user_id) if order and config else None
+    if not order: await update.message.reply_text('❌ سفارش پیدا نشد.'); return
+    if not config: await update.message.reply_text('⚠️ کانفیگ available وجود ندارد؛ سفارش تکمیل نشد.'); return
+    try: await context.bot.send_message(user.telegram_id, f'✅ پرداخت سفارش {order.order_uid} تأیید شد!\n\n🔐 کانفیگ Virex شما:\n{config.config_text}')
+    except Exception: logger.exception('Delivery failed for order %s', order.id)
+    await update.message.reply_text('✅ سفارش تأیید و کانفیگ ارسال شد.')
 
 
-async def reject_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or denied(update) or not context.args or not context.args[0].isdigit(): return
-    async with async_session_factory() as s:
-        order = await s.get(Order, int(context.args[0]))
-        if order and order.payment_status == "pending_review":
-            order.status = order.payment_status = "rejected"
-            if order.payment_method == "wallet":
-                user = await s.get(User, order.user_id)
-                user.wallet_balance += order.price_toman
-                s.add(WalletTransaction(user_id=user.id, amount=order.price_toman, transaction_type="refund", description=f"بازگشت سفارش {order.order_uid}"))
-            await s.commit()
-    await update.message.reply_text("❌ سفارش رد شد و در صورت پرداخت با کیف پول، مبلغ بازگردانده شد." if order else "❌ سفارش پیدا نشد.")
-
-
-async def products(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or denied(update): return
-    async with async_session_factory() as s: rows = (await s.execute(select(Product).order_by(Product.volume_gb))).scalars().all()
-    await update.message.reply_text("📦 محصولات Virex:\n" + ("\n".join(f"{p.id}: {p.volume_gb}GB | {p.duration_days} روز | {p.price:,} تومان | {'فعال' if p.is_active else 'غیرفعال'}" for p in rows) if rows else "محصولی وجود ندارد."))
-
-
-async def add_product(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or denied(update) or len(context.args) < 4: return
-    try: volume, days, price = map(int, context.args[-3:]); name = " ".join(context.args[:-3])
-    except ValueError: await update.message.reply_text("فرمت: /addproduct نام حجم مدت قیمت"); return
-    async with async_session_factory() as s: s.add(Product(name=name, volume_gb=volume, duration_days=days, price=price)); await s.commit()
-    await update.message.reply_text("✅ محصول اضافه شد.")
-
-
-async def edit_product(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or denied(update) or len(context.args) < 4: return
-    try: pid, volume, days, price = map(int, context.args[:4])
-    except ValueError: await update.message.reply_text("فرمت: /editproduct شناسه حجم مدت قیمت"); return
-    async with async_session_factory() as s:
-        product = await s.get(Product, pid)
-        if product: product.volume_gb, product.duration_days, product.price = volume, days, price; await s.commit()
-    await update.message.reply_text("✅ محصول ویرایش شد." if product else "❌ محصول پیدا نشد.")
-
-
-async def toggle_product(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or denied(update) or not context.args or not context.args[0].isdigit(): return
-    async with async_session_factory() as s:
-        product = await s.get(Product, int(context.args[0]))
-        if product: product.is_active = not product.is_active; await s.commit()
-    await update.message.reply_text("✅ وضعیت محصول تغییر کرد." if product else "❌ محصول پیدا نشد.")
-
-
-async def delete_product(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or denied(update) or not context.args or not context.args[0].isdigit(): return
-    async with async_session_factory() as s:
-        product = await s.get(Product, int(context.args[0]))
-        if product: product.is_active = False; await s.commit()
-    await update.message.reply_text("✅ محصول غیرفعال شد." if product else "❌ محصول پیدا نشد.")
-
-
-async def add_config(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or denied(update) or len(context.args) < 2: return
-    try: product_id = int(context.args[0])
-    except ValueError: await update.message.reply_text("فرمت: /addconfig شناسه_محصول متن_کانفیگ"); return
-    async with async_session_factory() as s: s.add(VPNConfig(product_id=product_id, config_text=" ".join(context.args[1:]))); await s.commit()
-    await update.message.reply_text("✅ کانفیگ available اضافه شد.")
-
-
-async def configs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or denied(update): return
-    async with async_session_factory() as s: rows = (await s.execute(select(VPNConfig).order_by(VPNConfig.id))).scalars().all()
-    await update.message.reply_text("🔐 موجودی Virex:\n" + ("\n".join(f"{c.id}: محصول {c.product_id} | {c.status}" for c in rows) if rows else "موجودی خالی است."))
-
-
-async def delete_config(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or denied(update) or not context.args or not context.args[0].isdigit(): return
-    async with async_session_factory() as s:
-        config = await s.get(VPNConfig, int(context.args[0]))
-        if config and config.status == "available": await s.delete(config); await s.commit()
-    await update.message.reply_text("✅ کانفیگ حذف شد." if config else "❌ کانفیگ پیدا نشد یا فروخته شده است.")
-
-
-async def user_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or denied(update) or not context.args or not context.args[0].isdigit(): return
-    async with async_session_factory() as s:
-        user = (await s.execute(select(User).where(User.telegram_id == int(context.args[0])))).scalar_one_or_none()
-        count = (await s.execute(select(func.count(Order.id)).where(Order.user_id == user.id))).scalar() if user else 0
-    await update.message.reply_text(f"👤 {user.telegram_id}\nسفارش‌ها: {count}\nکیف پول: {user.wallet_balance:,}\nمسدود: {'بله' if user.is_blocked else 'خیر'}" if user else "کاربر پیدا نشد.")
-
-
-async def set_block(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or denied(update) or not context.args or not context.args[0].isdigit(): return
-    blocked = update.message.text.lower().split()[0].endswith("block") and not update.message.text.lower().split()[0].endswith("unblock")
-    async with async_session_factory() as s:
-        user = (await s.execute(select(User).where(User.telegram_id == int(context.args[0])))).scalar_one_or_none()
-        if user: user.is_blocked = blocked; await s.commit()
-    await update.message.reply_text("✅ وضعیت کاربر تغییر کرد." if user else "کاربر پیدا نشد.")
-
-
-async def wallet_adjust(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or denied(update) or len(context.args) < 2: return
-    try: telegram_id, amount = int(context.args[0]), int(context.args[1])
-    except ValueError: await update.message.reply_text("فرمت: /walletadd شناسه_تلگرام مبلغ"); return
-    async with async_session_factory() as s:
-        user = (await s.execute(select(User).where(User.telegram_id == telegram_id))).scalar_one_or_none()
-        if user: user.wallet_balance += amount; s.add(WalletTransaction(user_id=user.id, amount=amount, transaction_type="credit", description="شارژ توسط مدیر")); await s.commit()
-    await update.message.reply_text("✅ کیف پول شارژ شد." if user else "کاربر پیدا نشد.")
-
-
-async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or denied(update) or not context.args: return
-    async with async_session_factory() as s: users = (await s.execute(select(User).where(User.is_blocked.is_(False)))).scalars().all()
-    sent = 0
-    for user in users:
-        try: await context.bot.send_message(user.telegram_id, " ".join(context.args)); sent += 1
-        except Exception: logger.exception("Broadcast failed for %s", user.telegram_id)
-    await update.message.reply_text(f"📢 پیام برای {sent} کاربر ارسال شد.")
+async def admin_panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await admin_panel(update, context)
