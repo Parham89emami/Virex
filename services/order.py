@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Any
-import uuid
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.models import Coupon, CouponUsage, Order, Product, User, VPNConfig, WalletTransaction
 
@@ -27,12 +28,12 @@ async def active_products(session: AsyncSession) -> list[Product]:
 
 async def calculate_coupon(session: AsyncSession, code: str, user_id: int, price: int) -> tuple[int, Coupon | None, str | None]:
     coupon = (await session.execute(select(Coupon).where(Coupon.code == code.strip().upper(), Coupon.is_active.is_(True)))).scalar_one_or_none()
-    if not coupon: return price, None, "کد تخفیف معتبر نیست یا غیرفعال است."
-    if coupon.expires_at and coupon.expires_at < datetime.now(timezone.utc): return price, None, "تاریخ اعتبار کد تخفیف گذشته است."
-    if coupon.usage_limit is not None and coupon.used_count >= coupon.usage_limit: return price, None, "ظرفیت استفاده از کد تخفیف تمام شده است."
-    usage = (await session.execute(select(CouponUsage).where(CouponUsage.coupon_id == coupon.id, CouponUsage.user_id == user_id))).scalar_one_or_none()
-    if usage: return price, None, "این کد تخفیف را قبلاً استفاده کرده‌اید."
-    discount = coupon.discount_amount or (price * (coupon.discount_percent or 0) // 100)
+    if not coupon: return price, None, "کد تخفیف معتبر یا فعال نیست."
+    now = datetime.now(timezone.utc)
+    if coupon.expires_at and coupon.expires_at.replace(tzinfo=timezone.utc) < now: return price, None, "تاریخ کد تخفیف گذشته است."
+    if coupon.usage_limit is not None and coupon.used_count >= coupon.usage_limit: return price, None, "ظرفیت کد تخفیف تمام شده است."
+    if (await session.execute(select(CouponUsage.id).where(CouponUsage.coupon_id == coupon.id, CouponUsage.user_id == user_id))).scalar_one_or_none(): return price, None, "این کد را قبلاً استفاده کرده‌اید."
+    discount = coupon.discount_amount or price * (coupon.discount_percent or 0) // 100
     return max(0, price - discount), coupon, None
 
 async def create_order_for_user(session: AsyncSession, user: User, product: Product, price: int | None = None, coupon: Coupon | None = None) -> Order:
@@ -42,7 +43,11 @@ async def create_order_for_user(session: AsyncSession, user: User, product: Prod
     if coupon:
         coupon.used_count += 1
         session.add(CouponUsage(coupon_id=coupon.id, user_id=user.id))
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise
     await session.refresh(order)
     return order
 
@@ -53,7 +58,8 @@ async def get_all_orders_for_user(session: AsyncSession, telegram_id: int) -> li
     return list((await session.execute(select(Order).join(Order.user).where(User.telegram_id == telegram_id).order_by(Order.created_at.desc()))).scalars().all())
 
 async def update_order_review(session: AsyncSession, order: Order, file_id: str, file_name: str) -> None:
-    order.payment_status, order.receipt_file_id, order.receipt_file_name = "pending_review", file_id, file_name
+    order.payment_status, order.status = "pending_review", "pending_review"
+    order.receipt_file_id, order.receipt_file_name = file_id, file_name
     await session.commit()
 
 async def approve_and_deliver(session: AsyncSession, order_id: int) -> tuple[Order | None, VPNConfig | None]:
@@ -62,10 +68,10 @@ async def approve_and_deliver(session: AsyncSession, order_id: int) -> tuple[Ord
     config = (await session.execute(select(VPNConfig).where(VPNConfig.product_id == order.product_id, VPNConfig.status == "available").order_by(VPNConfig.id).limit(1))).scalar_one_or_none()
     if not config: return order, None
     claimed = await session.execute(update(VPNConfig).where(VPNConfig.id == config.id, VPNConfig.status == "available").values(status="sold", sold_to_user_id=order.user_id, order_id=order.id, sold_at=datetime.now(timezone.utc)))
-    if claimed.rowcount != 1: await session.rollback(); return order, None
+    if claimed.rowcount != 1:
+        await session.rollback(); return order, None
     order.config_id, order.status, order.payment_status, order.completed_at = config.id, "completed", "approved", datetime.now(timezone.utc)
-    await session.commit()
-    await session.refresh(order)
+    await session.commit(); await session.refresh(order)
     return order, config
 
 async def charge_wallet(session: AsyncSession, user: User, amount: int, description: str) -> bool:
