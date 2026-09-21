@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__
 from telegram import Update
 from telegram.ext import ContextTypes
 from config.settings import settings
@@ -13,7 +13,7 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if not is_admin(update.effective_user.id if update.effective_user else None): await update.message.reply_text("⛔ دسترسی غیرمجاز."); return
     async with async_session_factory() as s:
         users=(await s.execute(select(func.count(User.id)))).scalar() or 0; orders=(await s.execute(select(func.count(Order.id)))).scalar() or 0; sales=(await s.execute(select(func.coalesce(func.sum(Order.price_toman),0)).where(Order.payment_status=="approved"))).scalar() or 0; available=(await s.execute(select(func.count(VPNConfig.id)).where(VPNConfig.status=="available"))).scalar() or 0; sold=(await s.execute(select(func.count(VPNConfig.id)).where(VPNConfig.status=="sold"))).scalar() or 0
-    await update.message.reply_text(f"👑 پنل مدیریت VPN King\n━━━━━━━━━━━━\n👥 کاربران: {users}\n🧾 سفارش‌ها: {orders}\n✅ فروش موفق: {sales:,} تومان\n🔐 موجودی کانفیگ: {available}\n📤 کانفیگ فروخته‌شده: {sold}\n\nدستورات: /products /addproduct /addconfig /users /user /block /unblock /broadcast")
+    await update.message.reply_text(f"👑 پنل مدیریت Virex\n━━━━━━━━━━━━\n👥 کاربران: {users}\n🧾 سفارش‌ها: {orders}\n✅ فروش موفق: {sales:,} تومان\n🔐 موجودی کانفیگ: {available}\n📤 کانفیگ فروخته‌شده: {sold}\n\nدستورات: /products /addproduct /addconfig /users /user /block /unblock /broadcast")
 async def _change_order(update: Update, context: ContextTypes.DEFAULT_TYPE, approved: bool) -> None:
     if not update.message or not is_admin(update.effective_user.id if update.effective_user else None): return
     if not context.args or not approved: await update.message.reply_text("فرمت: /confirm ORDER_ID" if approved else "رد سفارش با /reject ORDER_ID"); return

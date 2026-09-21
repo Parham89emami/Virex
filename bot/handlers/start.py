@@ -10,9 +10,9 @@ from database.database import async_session_factory
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.effective_user or not update.message: return
     async with async_session_factory() as session: await ensure_user_registered(session, update.effective_user)
-    await update.message.reply_text("👑 به VPN King خوش آمدید!\n\nخرید VPN پرسرعت و مطمئن با تحویل خودکار کانفیگ.", reply_markup=get_main_menu_keyboard())
+    await update.message.reply_text("👑 به Virex خوش آمدید!\n\nخرید VPN پرسرعت و مطمئن با تحویل خودکار کانفیگ.", reply_markup=get_main_menu_keyboard())
 async def support_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message: await update.message.reply_text(f"💬 پشتیبانی VPN King\n\nارتباط با پشتیبانی: {settings.support_contact}", reply_markup=get_main_menu_keyboard())
+    if update.message: await update.message.reply_text(f"💬 پشتیبانی Virex\n\nارتباط با پشتیبانی: {settings.support_contact}", reply_markup=get_main_menu_keyboard())
 async def orders_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None: await my_orders(update, context)
 async def main_menu_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message or not update.message.text: return
