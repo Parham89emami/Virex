@@ -1,24 +1,11 @@
 from __future__ import annotations
-
 import os
 from dataclasses import dataclass
-
 from dotenv import load_dotenv
-
 load_dotenv()
 
-
 def parse_admin_ids(value: str) -> list[int]:
-    ids: list[int] = []
-    for item in value.split(","):
-        try:
-            item = item.strip()
-            if item:
-                ids.append(int(item))
-        except ValueError:
-            continue
-    return ids
-
+    return [int(x.strip()) for x in value.split(",") if x.strip().isdigit()]
 
 @dataclass(frozen=True)
 class Settings:
@@ -28,21 +15,10 @@ class Settings:
     card_number: str
     card_owner: str
     support_contact: str
-    marzban_enabled: bool
-    marzban_url: str
-    marzban_username: str
-    marzban_password: str
 
-
-settings = Settings(
-    bot_token=os.getenv("BOT_TOKEN", ""),
-    admin_ids=parse_admin_ids(os.getenv("ADMIN_IDS", "")),
-    database_url=os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./virex.db"),
-    card_number=os.getenv("CARD_NUMBER", ""),
-    card_owner=os.getenv("CARD_OWNER", ""),
-    support_contact=os.getenv("SUPPORT_CONTACT", "@Parham88e"),
-    marzban_enabled=os.getenv("MARZBAN_ENABLED", "false").lower() == "true",
-    marzban_url=os.getenv("MARZBAN_URL", ""),
-    marzban_username=os.getenv("MARZBAN_USERNAME", ""),
-    marzban_password=os.getenv("MARZBAN_PASSWORD", ""),
-)
+raw_db = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./vpnking.db")
+if raw_db.startswith("postgres://"):
+    raw_db = raw_db.replace("postgres://", "postgresql+asyncpg://", 1)
+elif raw_db.startswith("postgresql://") and "+asyncpg" not in raw_db:
+    raw_db = raw_db.replace("postgresql://", "postgresql+asyncpg://", 1)
+settings = Settings(os.getenv("BOT_TOKEN", ""), parse_admin_ids(os.getenv("ADMIN_IDS", "")), raw_db, os.getenv("CARD_NUMBER", ""), os.getenv("CARD_OWNER", ""), os.getenv("SUPPORT_CONTACT", "@VpnKingSupport"))

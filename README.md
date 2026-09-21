@@ -1,39 +1,20 @@
-# Virex Telegram VPN Sales Bot
+# VPN King
 
-ربات فروش VPN وایرکس با Python 3.11، `python-telegram-bot`، SQLAlchemy و SQLite.
+ربات فارسی فروش VPN با محصولات، موجودی کانفیگ، پرداخت کارت‌به‌کارت و تحویل امن پس از تأیید مدیر.
 
 ## اجرا
-
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 python main.py
 ```
 
-مقادیر واقعی را فقط در `.env` محلی یا Environment Variables سرویس Railway قرار دهید. فایل `.env` در Git نادیده گرفته می‌شود.
+## متغیرهای محیطی
+`BOT_TOKEN`، `ADMIN_IDS`، `DATABASE_URL`، `CARD_NUMBER`، `CARD_OWNER` و `SUPPORT_CONTACT` را در Railway Variables تنظیم کنید. اطلاعات حساس در Git ذخیره نمی‌شود.
 
-## متغیرهای Railway
+## پنل مدیریت
+فقط شناسه‌های `ADMIN_IDS` به `/admin` دسترسی دارند. محصولات اولیه هنگام اولین اجرا ساخته می‌شوند. برای جلوگیری از تحویل تکراری، اختصاص کانفیگ با یک تراکنش و شرط اتمیک وضعیت `available` انجام می‌شود.
 
-- `BOT_TOKEN`: توکن ربات تلگرام
-- `ADMIN_IDS`: آیدی‌های مدیران (Comma-separated)
-- `DATABASE_URL`: به‌صورت پیش‌فرض `sqlite+aiosqlite:///./virex.db`
-- `CARD_NUMBER` و `CARD_OWNER`: اطلاعات پرداخت
-- `MARZBAN_ENABLED=false` برای نسخه اولیه؛ سایر متغیرهای Marzban در صورت فعال‌سازی
-
-## استقرار در Railway
-
-1. این مخزن را در Railway از GitHub انتخاب کنید.
-2. متغیرهای بالا را در بخش Variables اضافه کنید.
-3. Railway از `runtime.txt` و `railway.toml` استفاده می‌کند و با دستور زیر اجرا می‌کند:
-
-```bash
-python main.py
-```
-
-ربات با polling کار می‌کند و به دامنه عمومی نیاز ندارد. برای پایداری SQLite در Railway، در محیط production بعداً `DATABASE_URL` را به یک دیتابیس پایداری‌تر (مثلاً PostgreSQL) تغییر دهید.
-
-## امکانات
-
-`/start` کاربر را ثبت می‌کند و منوی فارسی را نمایش می‌دهد. خرید VPN، سفارش‌های من، رسید عکس/فایل، و وضعیت سفارش پیگیری می‌شود. در نسخه اولیه، بررسی پرداخت‌ها به‌صورت دستی توسط ادمین انجام می‌شود.
+Railway با `Procfile` یا `railway.toml` و دستور `python main.py` اجرا می‌شود.
