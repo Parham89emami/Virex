@@ -28,6 +28,8 @@ class Settings:
     database_url: str
     card_number: str
     card_owner: str
+    wallet_card_number: str
+    wallet_card_owner: str
     support_contact: str
     log_level: str
     instance_lock_key: int
@@ -39,6 +41,8 @@ settings = Settings(
     database_url=normalize_database_url(os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./virex.db")),
     card_number=os.getenv("CARD_NUMBER", "").strip(),
     card_owner=os.getenv("CARD_OWNER", "").strip(),
+    wallet_card_number=os.getenv("WALLET_CARD_NUMBER", "").strip() or os.getenv("CARD_NUMBER", "").strip(),
+    wallet_card_owner=os.getenv("WALLET_CARD_OWNER", "").strip() or os.getenv("CARD_OWNER", "").strip(),
     support_contact=os.getenv("SUPPORT_CONTACT", "@Parham88e").strip() or "@Parham88e",
     log_level=os.getenv("LOG_LEVEL", "INFO").strip(),
     instance_lock_key=int(os.getenv("INSTANCE_LOCK_KEY", "1377642930")),
