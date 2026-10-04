@@ -32,3 +32,7 @@ def get_support_keyboard() -> InlineKeyboardMarkup:
 
 def get_back_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup([[BACK_BUTTON]], resize_keyboard=True)
+
+
+def get_wallet_keyboard() -> InlineKeyboardMarkup:
+    return inline_menu([[('➕ شارژ کیف پول', 'wallet:topup')], [('🔙 بازگشت', 'wallet:back')]])
